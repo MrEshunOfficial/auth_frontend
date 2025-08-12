@@ -90,7 +90,7 @@ export interface User {
   email: string;
   lastLogin: string;
   isVerified: boolean;
-  userRole: "user" | "admin" | "super_admin";
+  role: "user" | "admin" | "super_admin";
   provider: "credentials" | "google" | "apple";
   providerId?: string;
   avatar?: ProfilePicture | string;

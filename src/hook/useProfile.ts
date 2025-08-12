@@ -13,6 +13,8 @@ import {
   clearError,
   updateUserOptimistic,
   updateProfileOptimistic,
+  checkAuthStatus,
+  setLoading,
 } from "@/store/slices/profile.slice";
 import type { RootState, AppDispatch } from "@/store";
 import {
@@ -33,9 +35,11 @@ interface UseProfileReturn {
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  authChecked: boolean;
   completeness?: number;
 
   // Actions
+  initializeAuth: () => Promise<void>;
   fetchUserProfile: () => Promise<void>;
   updateUserProfile: (updates: UpdateProfileRequestBody) => Promise<void>;
   updateRole: (role: UserRole) => Promise<void>;
@@ -69,6 +73,7 @@ export const useProfile = (): UseProfileReturn => {
     error,
     lastFetched,
     isAuthenticated,
+    authChecked,
     completeness,
   } = useSelector((state: RootState) => state.profile);
 
@@ -78,15 +83,33 @@ export const useProfile = (): UseProfileReturn => {
     return Date.now() - lastFetched > CACHE_DURATION;
   }, [lastFetched]);
 
+  // Initialize authentication status
+  const initializeAuth = useCallback(async () => {
+    if (authChecked) return;
+    
+    try {
+      await dispatch(checkAuthStatus()).unwrap();
+    } catch {
+      console.log("Auth check failed - user not authenticated");
+      // Don't redirect here, let components handle unauthenticated state
+    }
+  }, [dispatch, authChecked]);
+
   // Fetch profile with automatic authentication handling
   const fetchUserProfile = useCallback(async () => {
     try {
+      dispatch(setLoading(true));
       await dispatch(fetchProfile()).unwrap();
     } catch (error: unknown) {
-      if (error === "AUTHENTICATION_ERROR") {
+      const errorMessage = typeof error === 'string' ? error : 'Failed to fetch profile';
+      
+      if (errorMessage === "AUTHENTICATION_ERROR") {
+        console.log("Authentication error - redirecting to login");
         router.push("/login");
       }
       throw error;
+    } finally {
+      dispatch(setLoading(false));
     }
   }, [dispatch, router]);
 
@@ -128,10 +151,15 @@ export const useProfile = (): UseProfileReturn => {
         // Refresh profile data after role update
         await fetchUserProfile();
       } catch (error) {
+        const errorMessage = typeof error === 'string' ? error : 'Failed to update role';
+        
+        if (errorMessage === "AUTHENTICATION_ERROR") {
+          router.push("/login");
+        }
         throw error;
       }
     },
-    [dispatch, fetchUserProfile]
+    [dispatch, fetchUserProfile, router]
   );
 
   // Update profile location
@@ -142,10 +170,15 @@ export const useProfile = (): UseProfileReturn => {
         // Refresh profile data after location update
         await fetchUserProfile();
       } catch (error) {
+        const errorMessage = typeof error === 'string' ? error : 'Failed to update location';
+        
+        if (errorMessage === "AUTHENTICATION_ERROR") {
+          router.push("/login");
+        }
         throw error;
       }
     },
-    [dispatch, fetchUserProfile]
+    [dispatch, fetchUserProfile, router]
   );
 
   // Fetch profile completeness
@@ -154,6 +187,7 @@ export const useProfile = (): UseProfileReturn => {
       await dispatch(fetchProfileCompleteness()).unwrap();
     } catch (error) {
       console.error("Failed to fetch completeness:", error);
+      // Don't throw for completeness errors as it's not critical
     }
   }, [dispatch]);
 
@@ -161,11 +195,12 @@ export const useProfile = (): UseProfileReturn => {
   const logout = useCallback(async () => {
     try {
       await dispatch(logoutUser()).unwrap();
-      router.push("/login");
     } catch (error) {
-      // Even if logout fails, redirect to login
+      console.error("Logout failed:", error);
+    } finally {
+      // Always redirect and clear state, even if logout request fails
+      dispatch(clearProfile());
       router.push("/login");
-      throw error;
     }
   }, [dispatch, router]);
 
@@ -185,6 +220,8 @@ export const useProfile = (): UseProfileReturn => {
 
     try {
       const date = new Date(dateString);
+      if (isNaN(date.getTime())) return "Invalid date";
+      
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
@@ -210,7 +247,7 @@ export const useProfile = (): UseProfileReturn => {
       case "user":
         return "User";
       default:
-        return role;
+        return role || "Unknown";
     }
   }, []);
 
@@ -227,19 +264,26 @@ export const useProfile = (): UseProfileReturn => {
     }
   }, []);
 
-  // Auto-fetch profile on mount if needed and authenticated
+  // Initialize auth on mount
   useEffect(() => {
-    if (isAuthenticated && needsRefresh()) {
+    if (!authChecked) {
+      initializeAuth();
+    }
+  }, [authChecked, initializeAuth]);
+
+  // Auto-fetch profile when authenticated and data is stale
+  useEffect(() => {
+    if (isAuthenticated && authChecked && needsRefresh() && !loading) {
       fetchUserProfile().catch(console.error);
     }
-  }, [isAuthenticated, needsRefresh, fetchUserProfile]);
+  }, [isAuthenticated, authChecked, needsRefresh, loading, fetchUserProfile]);
 
   // Auto-fetch completeness when profile is loaded
   useEffect(() => {
-    if (user && profile && completeness === undefined) {
+    if (user && profile && completeness === undefined && !loading) {
       fetchCompleteness();
     }
-  }, [user, profile, completeness, fetchCompleteness]);
+  }, [user, profile, completeness, loading, fetchCompleteness]);
 
   // Helper computed properties
   const isAdmin = user?.isAdmin || false;
@@ -254,9 +298,11 @@ export const useProfile = (): UseProfileReturn => {
     loading,
     error,
     isAuthenticated,
+    authChecked,
     completeness,
 
     // Actions
+    initializeAuth,
     fetchUserProfile,
     updateUserProfile,
     updateRole,
@@ -282,15 +328,24 @@ export const useProfile = (): UseProfileReturn => {
 
 // Updated useAuth hook
 export const useAuth = () => {
-  const { isAuthenticated, user, logout, clearProfileData, loading } =
-    useProfile();
+  const { 
+    isAuthenticated, 
+    authChecked,
+    user, 
+    logout, 
+    clearProfileData, 
+    loading,
+    initializeAuth 
+  } = useProfile();
 
   return {
     isAuthenticated,
+    authChecked,
     user,
     logout,
     clearAuth: clearProfileData,
     loading,
+    initializeAuth,
   };
 };
 
@@ -299,14 +354,14 @@ export const useUserRole = () => {
   const { user, profile, isAdmin, isSuperAdmin, getRoleDisplay } = useProfile();
 
   return {
-    userRole: user?.userRole,
+    userRole: user?.role,
     profileRole: profile?.role,
     isAdmin,
     isSuperAdmin,
-    isUser: user?.userRole === "user",
+    isUser: user?.role === "user",
     isCustomer: profile?.role === UserRole.CUSTOMER,
     isProvider: profile?.role === UserRole.PROVIDER,
-    userRoleDisplay: user?.userRole ? getRoleDisplay(user.userRole) : "Unknown",
+    userRoleDisplay: user?.role ? getRoleDisplay(user.role) : "Unknown",
     profileRoleDisplay: profile?.role
       ? getRoleDisplay(profile.role)
       : "Unknown",
