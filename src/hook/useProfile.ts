@@ -1,31 +1,46 @@
-// hooks/useProfile.ts (Updated useAuth hook)
+// hooks/useProfile.ts
 import { useCallback, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import {
   fetchProfile,
   updateProfile,
+  updateProfileRole,
+  updateProfileLocation,
+  fetchProfileCompleteness,
   logoutUser,
   clearProfile,
   clearError,
+  updateUserOptimistic,
   updateProfileOptimistic,
-  ProfileData,
 } from "@/store/slices/profile.slice";
 import type { RootState, AppDispatch } from "@/store";
+import {
+  User,
+  UserProfile,
+  UpdateProfileRequestBody,
+  UserRole,
+  UserLocation,
+} from "@/types/api.types";
 
 // Cache duration in milliseconds (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000;
 
 interface UseProfileReturn {
   // Data
-  profile: ProfileData | null;
+  user: User | null;
+  profile: UserProfile | null;
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
+  completeness?: number;
 
   // Actions
   fetchUserProfile: () => Promise<void>;
-  updateUserProfile: (updates: Partial<ProfileData>) => Promise<void>;
+  updateUserProfile: (updates: UpdateProfileRequestBody) => Promise<void>;
+  updateRole: (role: UserRole) => Promise<void>;
+  updateLocation: (location: UserLocation) => Promise<void>;
+  fetchCompleteness: () => Promise<void>;
   logout: () => Promise<void>;
   clearProfileData: () => void;
   clearProfileError: () => void;
@@ -40,6 +55,7 @@ interface UseProfileReturn {
   isSuperAdmin: boolean;
   isVerified: boolean;
   needsRefresh: boolean;
+  hasProfile: boolean;
 }
 
 export const useProfile = (): UseProfileReturn => {
@@ -47,11 +63,13 @@ export const useProfile = (): UseProfileReturn => {
   const router = useRouter();
 
   const {
-    data: profile,
+    user,
+    profile,
     loading,
     error,
     lastFetched,
     isAuthenticated,
+    completeness,
   } = useSelector((state: RootState) => state.profile);
 
   // Check if profile data needs refresh
@@ -66,7 +84,6 @@ export const useProfile = (): UseProfileReturn => {
       await dispatch(fetchProfile()).unwrap();
     } catch (error: unknown) {
       if (error === "AUTHENTICATION_ERROR") {
-        // Redirect to login for authentication errors
         router.push("/login");
       }
       throw error;
@@ -75,24 +92,70 @@ export const useProfile = (): UseProfileReturn => {
 
   // Update profile with optimistic updates
   const updateUserProfile = useCallback(
-    async (updates: Partial<ProfileData>) => {
-      if (!profile) {
-        throw new Error("No profile data available");
+    async (updates: UpdateProfileRequestBody) => {
+      if (!user) {
+        throw new Error("No user data available");
       }
 
-      // Optimistic update
-      dispatch(updateProfileOptimistic(updates));
+      // Optimistic updates
+      if (updates.name || updates.avatar) {
+        const userUpdates: Partial<User> = {};
+        if (updates.name) userUpdates.name = updates.name;
+        if (updates.avatar) userUpdates.avatar = updates.avatar;
+        dispatch(updateUserOptimistic(userUpdates));
+      }
+
+      if (updates.profile && profile) {
+        dispatch(updateProfileOptimistic(updates.profile));
+      }
 
       try {
         await dispatch(updateProfile(updates)).unwrap();
       } catch (error) {
-        // Revert optimistic update by refetching
+        // Revert optimistic updates by refetching
         await fetchUserProfile();
         throw error;
       }
     },
-    [dispatch, profile, fetchUserProfile]
+    [dispatch, user, profile, fetchUserProfile]
   );
+
+  // Update profile role
+  const updateRole = useCallback(
+    async (role: UserRole) => {
+      try {
+        await dispatch(updateProfileRole(role)).unwrap();
+        // Refresh profile data after role update
+        await fetchUserProfile();
+      } catch (error) {
+        throw error;
+      }
+    },
+    [dispatch, fetchUserProfile]
+  );
+
+  // Update profile location
+  const updateLocation = useCallback(
+    async (location: UserLocation) => {
+      try {
+        await dispatch(updateProfileLocation({ location })).unwrap();
+        // Refresh profile data after location update
+        await fetchUserProfile();
+      } catch (error) {
+        throw error;
+      }
+    },
+    [dispatch, fetchUserProfile]
+  );
+
+  // Fetch profile completeness
+  const fetchCompleteness = useCallback(async () => {
+    try {
+      await dispatch(fetchProfileCompleteness()).unwrap();
+    } catch (error) {
+      console.error("Failed to fetch completeness:", error);
+    }
+  }, [dispatch]);
 
   // Logout with automatic redirect
   const logout = useCallback(async () => {
@@ -140,6 +203,10 @@ export const useProfile = (): UseProfileReturn => {
         return "Super Administrator";
       case "admin":
         return "Administrator";
+      case "service_provider":
+        return "Service Provider";
+      case "customer":
+        return "Customer";
       case "user":
         return "User";
       default:
@@ -167,21 +234,34 @@ export const useProfile = (): UseProfileReturn => {
     }
   }, [isAuthenticated, needsRefresh, fetchUserProfile]);
 
+  // Auto-fetch completeness when profile is loaded
+  useEffect(() => {
+    if (user && profile && completeness === undefined) {
+      fetchCompleteness();
+    }
+  }, [user, profile, completeness, fetchCompleteness]);
+
   // Helper computed properties
-  const isAdmin = profile?.isAdmin || false;
-  const isSuperAdmin = profile?.isSuperAdmin || false;
-  const isVerified = profile?.isVerified || false;
+  const isAdmin = user?.isAdmin || false;
+  const isSuperAdmin = user?.isSuperAdmin || false;
+  const isVerified = user?.isVerified || false;
+  const hasProfile = !!profile;
 
   return {
     // Data
+    user,
     profile,
     loading,
     error,
     isAuthenticated,
+    completeness,
 
     // Actions
     fetchUserProfile,
     updateUserProfile,
+    updateRole,
+    updateLocation,
+    fetchCompleteness,
     logout,
     clearProfileData,
     clearProfileError,
@@ -196,44 +276,49 @@ export const useProfile = (): UseProfileReturn => {
     isSuperAdmin,
     isVerified,
     needsRefresh: needsRefresh(),
+    hasProfile,
   };
 };
 
-// Updated useAuth hook to include loading
+// Updated useAuth hook
 export const useAuth = () => {
-  const { isAuthenticated, profile, logout, clearProfileData, loading } =
+  const { isAuthenticated, user, logout, clearProfileData, loading } =
     useProfile();
 
   return {
     isAuthenticated,
-    user: profile,
+    user,
     logout,
     clearAuth: clearProfileData,
-    loading, // Add loading to useAuth return
+    loading,
   };
 };
 
+// User role hook
 export const useUserRole = () => {
-  const { profile, isAdmin, isSuperAdmin, getRoleDisplay } = useProfile();
+  const { user, profile, isAdmin, isSuperAdmin, getRoleDisplay } = useProfile();
 
   return {
-    role: profile?.userRole,
+    userRole: user?.userRole,
+    profileRole: profile?.role,
     isAdmin,
     isSuperAdmin,
-    isUser: profile?.userRole === "user",
-    roleDisplay: profile?.userRole
-      ? getRoleDisplay(profile.userRole)
+    isUser: user?.userRole === "user",
+    isCustomer: profile?.role === UserRole.CUSTOMER,
+    isProvider: profile?.role === UserRole.PROVIDER,
+    userRoleDisplay: user?.userRole ? getRoleDisplay(user.userRole) : "Unknown",
+    profileRoleDisplay: profile?.role
+      ? getRoleDisplay(profile.role)
       : "Unknown",
   };
 };
 
+// User preferences hook
 export const useUserPreferences = () => {
   const { profile, updateUserProfile } = useProfile();
 
   const updatePreferences = useCallback(
-    async (
-      newPreferences: Partial<NonNullable<ProfileData["preferences"]>>
-    ) => {
+    async (newPreferences: Partial<UserProfile["preferences"]>) => {
       if (!profile) throw new Error("No profile available");
 
       const updatedPreferences = {
@@ -241,7 +326,11 @@ export const useUserPreferences = () => {
         ...newPreferences,
       };
 
-      await updateUserProfile({ preferences: updatedPreferences });
+      await updateUserProfile({
+        profile: {
+          preferences: updatedPreferences,
+        },
+      });
     },
     [profile, updateUserProfile]
   );
@@ -251,6 +340,7 @@ export const useUserPreferences = () => {
     theme: profile?.preferences?.theme,
     notifications: profile?.preferences?.notifications,
     language: profile?.preferences?.language,
+    privacySettings: profile?.preferences?.privacySettings,
     updatePreferences,
   };
 };

@@ -1,12 +1,25 @@
 "use client";
+import useProfile from "@/hook/useProfile";
+import React, { useEffect } from "react";
 
-import ProtectedRoute from "@/components/auth/AuthProtectedRoute";
-import UserProfile from "@/components/profile/user.profile";
+const ProfileDemo: React.FC = () => {
+  const { user, profile, isAuthenticated, fetchUserProfile } = useProfile();
 
-export default function ProfilePage() {
+  // fetch user profile on mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUserProfile();
+    }
+  }, [isAuthenticated, fetchUserProfile]);
+
+  console.log("User:", user);
+  console.log("Profile:", profile);
+
   return (
-    <ProtectedRoute level="user">
-      <UserProfile />
-    </ProtectedRoute>
+    <div>
+      <h1>Profile Information</h1>
+    </div>
   );
-}
+};
+
+export default ProfileDemo;

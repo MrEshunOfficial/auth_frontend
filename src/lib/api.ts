@@ -1,27 +1,25 @@
 // lib/api.ts
+import {
+  ApiResponse,
+  ApiError,
+  User,
+  UserProfile,
+  SignupRequestBody,
+  LoginRequestBody,
+  UpdateProfileRequestBody,
+  UpdateProfileRoleRequestBody,
+  UpdateProfileLocationRequestBody,
+  GoogleAuthRequestBody,
+  AppleAuthRequestBody,
+  LinkProviderRequestBody,
+} from "@/types/api.types";
+
 const getBaseURL = (): string => {
-  // In development, proxy through Next.js or direct to backend
   if (process.env.NODE_ENV === "development") {
     return process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
   }
-  // In production, use environment variable
   return process.env.NEXT_PUBLIC_BACKEND_URL || "";
 };
-
-interface ApiResponse<T = unknown> {
-  message: string;
-  user?: unknown;
-  token?: string;
-  requiresVerification?: boolean;
-  email?: string;
-  data?: T;
-}
-
-interface ApiError {
-  message: string;
-  status?: number;
-  code?: string;
-}
 
 class ApiClient {
   private baseURL: string;
@@ -34,25 +32,23 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    // Ensure proper URL construction
     const url = `${this.baseURL}/api${endpoint}`;
 
-    console.log("Making request to:", url); // Debug log
+    console.log("Making request to:", url);
 
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
         ...options.headers,
       },
-      credentials: "include", // This ensures cookies are sent
-      mode: "cors", // Explicitly set CORS mode
+      credentials: "include",
+      mode: "cors",
       ...options,
     };
 
     try {
       const response = await fetch(url, config);
 
-      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         let errorCode: string | undefined;
@@ -79,7 +75,6 @@ class ApiClient {
     } catch (error) {
       console.error("API request failed:", error);
 
-      // Handle network errors
       if (error instanceof TypeError && error.message.includes("fetch")) {
         const networkError: ApiError = {
           message: "Network error. Please check your connection and try again.",
@@ -88,7 +83,6 @@ class ApiClient {
         throw networkError;
       }
 
-      // Handle CORS errors
       if (error instanceof TypeError && error.message.includes("CORS")) {
         const corsError: ApiError = {
           message: "Connection error. Please try again later.",
@@ -97,12 +91,10 @@ class ApiClient {
         throw corsError;
       }
 
-      // Re-throw ApiError objects
       if (typeof error === "object" && error !== null && "message" in error) {
         throw error;
       }
 
-      // Fallback for unknown errors
       const unknownError: ApiError = {
         message: "An unexpected error occurred. Please try again.",
         code: "UNKNOWN_ERROR",
@@ -112,21 +104,14 @@ class ApiClient {
   }
 
   // Auth methods
-  async signup(userData: {
-    name: string;
-    email: string;
-    password: string;
-  }): Promise<ApiResponse> {
+  async signup(userData: SignupRequestBody): Promise<ApiResponse> {
     return this.request("/auth/signup", {
       method: "POST",
       body: JSON.stringify(userData),
     });
   }
 
-  async login(credentials: {
-    email: string;
-    password: string;
-  }): Promise<ApiResponse> {
+  async login(credentials: LoginRequestBody): Promise<ApiResponse> {
     return this.request("/auth/login", {
       method: "POST",
       body: JSON.stringify(credentials),
@@ -167,42 +152,88 @@ class ApiClient {
     });
   }
 
-  async getProfile(): Promise<ApiResponse> {
-    return this.request("/auth/profile");
+  // Profile methods
+  async getProfile(): Promise<
+    ApiResponse<{ user: User; profile?: UserProfile }>
+  > {
+    return this.request("/profile");
   }
 
-  async updateProfile(updates: unknown): Promise<ApiResponse> {
-    return this.request("/auth/profile", {
-      method: "PATCH",
+  async updateProfile(
+    updates: UpdateProfileRequestBody
+  ): Promise<ApiResponse<{ user: User; profile?: UserProfile }>> {
+    return this.request("/profile", {
+      method: "PUT",
       body: JSON.stringify(updates),
     });
   }
 
-  // Google Auth
-  async googleAuth(idToken: string): Promise<ApiResponse> {
+  async getProfileCompleteness(): Promise<
+    ApiResponse<{ completeness: number }>
+  > {
+    return this.request("/profile/completeness");
+  }
+
+  async updateProfileRole(
+    data: UpdateProfileRoleRequestBody
+  ): Promise<ApiResponse> {
+    return this.request("/profile/role", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateProfileLocation(
+    data: UpdateProfileLocationRequestBody
+  ): Promise<ApiResponse> {
+    return this.request("/profile/location", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Dashboard access methods
+  async getClientDashboard(): Promise<ApiResponse> {
+    return this.request("/profile/client-dashboard");
+  }
+
+  async getProviderDashboard(): Promise<ApiResponse> {
+    return this.request("/profile/provider-dashboard");
+  }
+
+  async getAdminProfiles(): Promise<ApiResponse> {
+    return this.request("/profile/admin-profiles");
+  }
+
+  async getProfileWithContext(): Promise<
+    ApiResponse<{ user: User; profile?: UserProfile }>
+  > {
+    return this.request("/profile/with-context");
+  }
+
+  // OAuth methods
+  async googleAuth(data: GoogleAuthRequestBody): Promise<ApiResponse> {
     return this.request("/auth/google", {
       method: "POST",
-      body: JSON.stringify({ idToken }),
+      body: JSON.stringify(data),
     });
   }
 
-  // Apple Auth
-  async appleAuth(idToken: string, user?: unknown): Promise<ApiResponse> {
+  async appleAuth(data: AppleAuthRequestBody): Promise<ApiResponse> {
     return this.request("/auth/apple", {
       method: "POST",
-      body: JSON.stringify({ idToken, user }),
+      body: JSON.stringify(data),
     });
   }
 
-  // Link provider
-  async linkProvider(provider: string, idToken: string): Promise<ApiResponse> {
+  async linkProvider(data: LinkProviderRequestBody): Promise<ApiResponse> {
     return this.request("/auth/link-provider", {
       method: "POST",
-      body: JSON.stringify({ provider, idToken }),
+      body: JSON.stringify(data),
     });
   }
 
-  // Health check method for debugging
+  // Health check
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.request("/health");
   }
@@ -210,4 +241,3 @@ class ApiClient {
 
 export const apiClient = new ApiClient();
 export default apiClient;
-export type { ApiResponse, ApiError };

@@ -1,45 +1,28 @@
-// store/slices/profile.slice.ts (Enhanced version)
+// store/slices/profile.slice.ts
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { apiClient } from "@/lib/api";
+import {
+  User,
+  UserProfile,
+  UpdateProfileRequestBody,
+  UpdateProfileLocationRequestBody,
+  UserRole,
+} from "@/types/api.types";
 
-export interface ProfileData {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  phone?: string;
-  bio?: string;
-  userRole: "user" | "admin" | "super_admin";
-  provider: "credentials" | "google" | "apple";
-  isVerified: boolean;
-  isAdmin: boolean;
-  isSuperAdmin: boolean;
-  createdAt: string;
-  updatedAt: string;
-  lastLogin: string;
-  address?: {
-    street?: string;
-    city?: string;
-    zipCode?: string;
-    country?: string;
-  };
-  preferences?: {
-    theme?: "light" | "dark" | "system";
-    language?: string;
-    notifications?: boolean;
-  };
-}
-
-interface ProfileState {
-  data: ProfileData | null;
+export interface ProfileState {
+  user: User | null;
+  profile: UserProfile | null;
   loading: boolean;
   error: string | null;
   lastFetched: number | null;
   isAuthenticated: boolean;
-  authChecked: boolean; // Track if we've checked authentication status
+  authChecked: boolean;
+  completeness?: number;
 }
 
 const initialState: ProfileState = {
-  data: null,
+  user: null,
+  profile: null,
   loading: false,
   error: null,
   lastFetched: null,
@@ -47,31 +30,16 @@ const initialState: ProfileState = {
   authChecked: false,
 };
 
-// Enhanced fetch profile with better error handling
+// Fetch profile data
 export const fetchProfile = createAsyncThunk(
   "profile/fetchProfile",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch("/api/auth/profile", {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.status === 401) {
-        // Clear any stored tokens
-        document.cookie = "token=; Max-Age=0; path=/";
-        return rejectWithValue("AUTHENTICATION_ERROR");
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return rejectWithValue(errorData.message || "Failed to fetch profile");
-      }
-
-      const data = await response.json();
-      return data;
+      const response = await apiClient.getProfile();
+      return {
+        user: response.user!,
+        profile: response.profile,
+      };
     } catch (error) {
       if (error instanceof Error) {
         return rejectWithValue(error.message);
@@ -81,58 +49,17 @@ export const fetchProfile = createAsyncThunk(
   }
 );
 
-// Check authentication status without fetching full profile
+// Check authentication status
 export const checkAuthStatus = createAsyncThunk(
   "profile/checkAuthStatus",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch("/api/auth/status", {
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.status === 401) {
-        return rejectWithValue("NOT_AUTHENTICATED");
-      }
-
-      if (!response.ok) {
-        return rejectWithValue("Failed to check auth status");
-      }
-
-      const data = await response.json();
-      return data.isAuthenticated;
-    } catch {
-      return rejectWithValue("Network error");
-    }
-  }
-);
-
-export const updateProfile = createAsyncThunk(
-  "profile/updateProfile",
-  async (updates: Partial<ProfileData>, { rejectWithValue }) => {
-    try {
-      const response = await fetch("/api/auth/profile", {
-        method: "PUT",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updates),
-      });
-
-      if (response.status === 401) {
-        return rejectWithValue("AUTHENTICATION_ERROR");
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        return rejectWithValue(errorData.message || "Failed to update profile");
-      }
-
-      const data = await response.json();
-      return data;
+      const response = await apiClient.getProfile();
+      return {
+        isAuthenticated: true,
+        user: response.user!,
+        profile: response.profile,
+      };
     } catch (error) {
       if (error instanceof Error) {
         return rejectWithValue(error.message);
@@ -142,28 +69,81 @@ export const updateProfile = createAsyncThunk(
   }
 );
 
+// Update profile
+export const updateProfile = createAsyncThunk(
+  "profile/updateProfile",
+  async (updates: UpdateProfileRequestBody, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.updateProfile(updates);
+      return {
+        user: response.user!,
+        profile: response.profile,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        return rejectWithValue(error.message);
+      }
+      return rejectWithValue("Network error");
+    }
+  }
+);
+
+// Update profile role
+export const updateProfileRole = createAsyncThunk(
+  "profile/updateProfileRole",
+  async (role: UserRole, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.updateProfileRole({ role });
+      return response;
+    } catch (error) {
+      if (error instanceof Error) {
+        return rejectWithValue(error.message);
+      }
+      return rejectWithValue("Network error");
+    }
+  }
+);
+
+// Update profile location
+export const updateProfileLocation = createAsyncThunk(
+  "profile/updateProfileLocation",
+  async (data: UpdateProfileLocationRequestBody, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.updateProfileLocation(data);
+      return response;
+    } catch (error) {
+      if (error instanceof Error) {
+        return rejectWithValue(error.message);
+      }
+      return rejectWithValue("Network error");
+    }
+  }
+);
+
+// Get profile completeness
+export const fetchProfileCompleteness = createAsyncThunk(
+  "profile/fetchProfileCompleteness",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.getProfileCompleteness();
+      return response.data?.completeness || 0;
+    } catch (error) {
+      if (error instanceof Error) {
+        return rejectWithValue(error.message);
+      }
+      return rejectWithValue("Network error");
+    }
+  }
+);
+
+// Logout user
 export const logoutUser = createAsyncThunk("profile/logout", async () => {
   try {
-    const response = await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    // Clear token regardless of response status
-    document.cookie = "token=; Max-Age=0; path=/";
-
-    if (!response.ok) {
-      // Don't fail logout for server errors
-      console.warn("Logout request failed, but token cleared locally");
-    }
-
+    await apiClient.logout();
     return true;
   } catch {
-    // Don't fail logout for network errors
-    console.warn("Logout network error, but token cleared locally");
+    // Don't fail logout for server errors
+    console.warn("Logout request failed, but clearing local state");
     return true;
   }
 });
@@ -173,28 +153,36 @@ const profileSlice = createSlice({
   initialState,
   reducers: {
     clearProfile: (state) => {
-      state.data = null;
+      state.user = null;
+      state.profile = null;
       state.isAuthenticated = false;
       state.lastFetched = null;
       state.error = null;
       state.authChecked = true;
+      state.completeness = undefined;
     },
     clearError: (state) => {
       state.error = null;
-    },
-    updateProfileOptimistic: (
-      state,
-      action: PayloadAction<Partial<ProfileData>>
-    ) => {
-      if (state.data) {
-        state.data = { ...state.data, ...action.payload };
-      }
     },
     setAuthenticatedStatus: (state, action: PayloadAction<boolean>) => {
       state.isAuthenticated = action.payload;
       state.authChecked = true;
       if (!action.payload) {
-        state.data = null;
+        state.user = null;
+        state.profile = null;
+      }
+    },
+    updateUserOptimistic: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
+    },
+    updateProfileOptimistic: (
+      state,
+      action: PayloadAction<Partial<UserProfile>>
+    ) => {
+      if (state.profile) {
+        state.profile = { ...state.profile, ...action.payload };
       }
     },
   },
@@ -208,15 +196,19 @@ const profileSlice = createSlice({
       })
       .addCase(checkAuthStatus.fulfilled, (state, action) => {
         state.loading = false;
-        state.isAuthenticated = action.payload;
+        state.isAuthenticated = action.payload.isAuthenticated;
+        state.user = action.payload.user;
+        state.profile = action.payload.profile || null;
         state.authChecked = true;
         state.error = null;
+        state.lastFetched = Date.now();
       })
       .addCase(checkAuthStatus.rejected, (state) => {
         state.loading = false;
         state.isAuthenticated = false;
         state.authChecked = true;
-        state.data = null;
+        state.user = null;
+        state.profile = null;
       });
 
     // Fetch profile
@@ -227,7 +219,8 @@ const profileSlice = createSlice({
       })
       .addCase(fetchProfile.fulfilled, (state, action) => {
         state.loading = false;
-        state.data = action.payload;
+        state.user = action.payload.user;
+        state.profile = action.payload.profile || null;
         state.isAuthenticated = true;
         state.authChecked = true;
         state.lastFetched = Date.now();
@@ -239,7 +232,8 @@ const profileSlice = createSlice({
 
         if (action.payload === "AUTHENTICATION_ERROR") {
           state.isAuthenticated = false;
-          state.data = null;
+          state.user = null;
+          state.profile = null;
         }
         state.authChecked = true;
       });
@@ -252,7 +246,8 @@ const profileSlice = createSlice({
       })
       .addCase(updateProfile.fulfilled, (state, action) => {
         state.loading = false;
-        state.data = action.payload;
+        state.user = action.payload.user;
+        state.profile = action.payload.profile || null;
         state.error = null;
       })
       .addCase(updateProfile.rejected, (state, action) => {
@@ -261,9 +256,27 @@ const profileSlice = createSlice({
 
         if (action.payload === "AUTHENTICATION_ERROR") {
           state.isAuthenticated = false;
-          state.data = null;
+          state.user = null;
+          state.profile = null;
         }
       });
+
+    // Update profile role
+    builder.addCase(updateProfileRole.fulfilled, (state) => {
+      // Refresh profile data after role update
+      state.lastFetched = null; // Force refresh
+    });
+
+    // Update profile location
+    builder.addCase(updateProfileLocation.fulfilled, (state) => {
+      // Refresh profile data after location update
+      state.lastFetched = null; // Force refresh
+    });
+
+    // Fetch profile completeness
+    builder.addCase(fetchProfileCompleteness.fulfilled, (state, action) => {
+      state.completeness = action.payload;
+    });
 
     // Logout
     builder
@@ -272,19 +285,23 @@ const profileSlice = createSlice({
       })
       .addCase(logoutUser.fulfilled, (state) => {
         state.loading = false;
-        state.data = null;
+        state.user = null;
+        state.profile = null;
         state.isAuthenticated = false;
         state.lastFetched = null;
         state.error = null;
         state.authChecked = true;
+        state.completeness = undefined;
       })
       .addCase(logoutUser.rejected, (state) => {
         // Even if logout fails, clear local state
         state.loading = false;
-        state.data = null;
+        state.user = null;
+        state.profile = null;
         state.isAuthenticated = false;
         state.lastFetched = null;
         state.authChecked = true;
+        state.completeness = undefined;
       });
   },
 });
@@ -292,8 +309,9 @@ const profileSlice = createSlice({
 export const {
   clearProfile,
   clearError,
-  updateProfileOptimistic,
   setAuthenticatedStatus,
+  updateUserOptimistic,
+  updateProfileOptimistic,
 } = profileSlice.actions;
 
 export default profileSlice.reducer;

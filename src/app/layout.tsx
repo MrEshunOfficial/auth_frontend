@@ -4,7 +4,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import Script from "next/script";
 import { ReduxProvider } from "@/components/providers/ReduxProvider";
-import AuthProvider from "@/components/providers/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -58,15 +57,13 @@ export default function RootLayout({
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange>
-            <AuthProvider>
-              {/* Main content with proper top padding to account for fixed header */}
-              <main className="relative w-full min-h-screen">
-                {/* Actual content container */}
-                <div className="w-full min-h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-4.5rem)] lg:min-h-[calc(100vh-5rem)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-                  {children}
-                </div>
-              </main>
-            </AuthProvider>
+            {/* Main content with proper top padding to account for fixed header */}
+            <main className="relative w-full min-h-screen">
+              {/* Actual content container */}
+              <div className="w-full min-h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-4.5rem)] lg:min-h-[calc(100vh-5rem)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                {children}
+              </div>
+            </main>
             ;
           </ThemeProvider>
         </ReduxProvider>
