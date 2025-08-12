@@ -1,5 +1,5 @@
 import React from "react";
 
-export default function EditProfilePage() {
-  return <div>Edit Profile Page</div>;
+export default function ProfilePage() {
+  return <div>Profile Page</div>;
 }

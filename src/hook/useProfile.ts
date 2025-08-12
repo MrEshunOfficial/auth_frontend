@@ -86,7 +86,7 @@ export const useProfile = (): UseProfileReturn => {
   // Initialize authentication status
   const initializeAuth = useCallback(async () => {
     if (authChecked) return;
-    
+
     try {
       await dispatch(checkAuthStatus()).unwrap();
     } catch {
@@ -101,8 +101,9 @@ export const useProfile = (): UseProfileReturn => {
       dispatch(setLoading(true));
       await dispatch(fetchProfile()).unwrap();
     } catch (error: unknown) {
-      const errorMessage = typeof error === 'string' ? error : 'Failed to fetch profile';
-      
+      const errorMessage =
+        typeof error === "string" ? error : "Failed to fetch profile";
+
       if (errorMessage === "AUTHENTICATION_ERROR") {
         console.log("Authentication error - redirecting to login");
         router.push("/login");
@@ -151,8 +152,9 @@ export const useProfile = (): UseProfileReturn => {
         // Refresh profile data after role update
         await fetchUserProfile();
       } catch (error) {
-        const errorMessage = typeof error === 'string' ? error : 'Failed to update role';
-        
+        const errorMessage =
+          typeof error === "string" ? error : "Failed to update role";
+
         if (errorMessage === "AUTHENTICATION_ERROR") {
           router.push("/login");
         }
@@ -170,8 +172,9 @@ export const useProfile = (): UseProfileReturn => {
         // Refresh profile data after location update
         await fetchUserProfile();
       } catch (error) {
-        const errorMessage = typeof error === 'string' ? error : 'Failed to update location';
-        
+        const errorMessage =
+          typeof error === "string" ? error : "Failed to update location";
+
         if (errorMessage === "AUTHENTICATION_ERROR") {
           router.push("/login");
         }
@@ -221,7 +224,7 @@ export const useProfile = (): UseProfileReturn => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return "Invalid date";
-      
+
       return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
@@ -234,22 +237,25 @@ export const useProfile = (): UseProfileReturn => {
     }
   }, []);
 
-  const getRoleDisplay = useCallback((role: string) => {
-    switch (role) {
-      case "super_admin":
-        return "Super Administrator";
-      case "admin":
-        return "Administrator";
-      case "service_provider":
-        return "Service Provider";
-      case "customer":
-        return "Customer";
-      case "user":
-        return "User";
-      default:
-        return role || "Unknown";
-    }
-  }, []);
+  const getRoleDisplay = useCallback(
+    (role: string) => {
+      switch (role) {
+        case "super_admin":
+          return user?.name;
+        case "admin":
+          return "Administrator";
+        case "service_provider":
+          return "Service Provider";
+        case "customer":
+          return "Customer";
+        case "user":
+          return "User";
+        default:
+          return role || "Unknown";
+      }
+    },
+    [user?.name]
+  );
 
   const getProviderDisplay = useCallback((provider?: string) => {
     switch (provider) {
@@ -258,7 +264,7 @@ export const useProfile = (): UseProfileReturn => {
       case "apple":
         return "Apple";
       case "credentials":
-        return "Email & Password";
+        return "Signed in with Email";
       default:
         return "Unknown";
     }
@@ -328,14 +334,14 @@ export const useProfile = (): UseProfileReturn => {
 
 // Updated useAuth hook
 export const useAuth = () => {
-  const { 
-    isAuthenticated, 
+  const {
+    isAuthenticated,
     authChecked,
-    user, 
-    logout, 
-    clearProfileData, 
+    user,
+    logout,
+    clearProfileData,
     loading,
-    initializeAuth 
+    initializeAuth,
   } = useProfile();
 
   return {

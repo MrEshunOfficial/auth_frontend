@@ -1,8 +1,7 @@
 "use client";
+import React, { useEffect } from "react";
 import LoadingSpinner from "@/components/ui/Loading-spinner";
 import { withAuth } from "@/components/AuthWrapper";
-
-import React, { useEffect } from "react";
 import DashboardNavigation, {
   QuickActions,
 } from "@/components/DashBoardNavigation";
@@ -39,6 +38,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     };
   }, [error, clearProfileError]);
 
+  const handleRetryFetch = () => {
+    fetchUserProfile().catch(console.error);
+  };
+
   return (
     <div className="container max-w-7xl mx-auto min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* Header */}
@@ -63,11 +66,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <main className="flex-1 w-full p-4">
         <div className="flex gap-4 h-full">
           {/* Sidebar */}
-          <aside className="w-64 flex-shrink-0 h-full">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 h-full shadow-sm">
-              <h3 className="font-medium mb-3">Navigation</h3>
-              <DashboardNavigation />
-              <QuickActions />
+          <aside className="w-76 flex-shrink-0">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm h-full flex flex-col">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+                <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                  Navigation
+                </h3>
+              </div>
+              <div className="flex-1 p-4 min-h-0 flex flex-col">
+                <DashboardNavigation />
+                <QuickActions />
+              </div>
             </div>
           </aside>
 
@@ -86,9 +95,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     </p>
                     <div className="mt-2">
                       <button
-                        onClick={() => fetchUserProfile().catch(console.error)}
-                        className="text-sm bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-800 dark:text-red-100 dark:hover:bg-red-700 px-3 py-1 rounded-md transition-colors"
-                      >
+                        onClick={handleRetryFetch}
+                        className="text-sm bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-800 dark:text-red-100 dark:hover:bg-red-700 px-3 py-1 rounded-md transition-colors">
                         Try Again
                       </button>
                     </div>
@@ -106,7 +114,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                 </p>
               </div>
             ) : (
-              children
+              <div className="h-full">{children}</div>
             )}
           </section>
         </div>
@@ -126,7 +134,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 export default withAuth(DashboardLayout, {
   fallback: (
     <div className="min-h-screen flex flex-col items-center justify-center p-2 bg-gray-50 dark:bg-gray-900">
-      <p className="mb-2 text-center text-gray-700 dark:text-gray-300">
+      <p className="text-center mb-2 text-gray-700 dark:text-gray-300">
         Errand mate welcomes you, please wait while we load your profile...
       </p>
       <LoadingSpinner />

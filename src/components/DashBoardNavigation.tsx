@@ -8,16 +8,28 @@ import {
   HelpCircle,
   LayoutDashboard,
   LogOut,
+  Shield,
+  Users,
+  UserCheck,
+  BarChart3,
+  Database,
+  Lock,
+  FileText,
+  Activity,
 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import useProfile from "@/hook/useProfile";
 
 interface NavigationItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
+  roles?: string[]; // Roles that can access this route
+  separator?: boolean; // Add separator before this item
 }
 
 const navigationItems: NavigationItem[] = [
+  // Regular user routes
   {
     href: "/profile",
     label: "Profile",
@@ -43,11 +55,71 @@ const navigationItems: NavigationItem[] = [
     label: "Help",
     icon: HelpCircle,
   },
+
+  // Admin routes
+  {
+    href: "/admin",
+    label: "Admin Dashboard",
+    icon: Shield,
+    roles: ["admin", "super_admin"],
+    separator: true,
+  },
+  {
+    href: "/admin/users",
+    label: "User Management",
+    icon: Users,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    href: "/admin/profiles",
+    label: "Profile Management",
+    icon: UserCheck,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    href: "/admin/analytics",
+    label: "Analytics",
+    icon: BarChart3,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    href: "/admin/reports",
+    label: "Reports",
+    icon: FileText,
+    roles: ["admin", "super_admin"],
+  },
+  {
+    href: "/admin/activity",
+    label: "Activity Logs",
+    icon: Activity,
+    roles: ["admin", "super_admin"],
+  },
+
+  // Super Admin only routes
+  {
+    href: "/admin/system",
+    label: "System Settings",
+    icon: Database,
+    roles: ["super_admin"],
+    separator: true,
+  },
+  {
+    href: "/admin/permissions",
+    label: "Permissions",
+    icon: Lock,
+    roles: ["super_admin"],
+  },
+  {
+    href: "/admin/admins",
+    label: "Admin Management",
+    icon: Shield,
+    roles: ["super_admin"],
+  },
 ];
 
 export const DashboardNavigation: React.FC = () => {
   const pathname = usePathname();
-  const { logout } = useProfile();
+  const { user, logout } = useProfile();
 
   const handleLogout = async () => {
     try {
@@ -62,37 +134,80 @@ export const DashboardNavigation: React.FC = () => {
     return pathname === href || pathname.startsWith(href + "/");
   };
 
+  const canAccessRoute = (item: NavigationItem) => {
+    // If no specific roles are defined, all authenticated users can access
+    if (!item.roles) return true;
+
+    // Check if user has required role
+    return item.roles.includes(user?.role || "");
+  };
+
+  const getFilteredNavigationItems = () => {
+    return navigationItems.filter((item) => canAccessRoute(item));
+  };
+
+  const filteredItems = getFilteredNavigationItems();
+
   return (
-    <nav className="space-y-1">
-      {navigationItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = isActiveRoute(item.href);
+    <div
+      className="flex flex-col h-full min-h-0"
+      data-testid="dashboard-navigation">
+      {/* Scrollable Navigation Area */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <ScrollArea className="h-full">
+          <nav className="space-y-1 p-1">
+            {filteredItems.map((item, index) => {
+              const Icon = item.icon;
+              const isActive = isActiveRoute(item.href);
+              const showSeparator = item.separator && index > 0;
 
-        return (
-          <a
-            key={item.href}
-            href={item.href}
-            className={`flex items-center gap-2 px-2 py-2 rounded-md transition-colors ${
-              isActive
-                ? "bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100"
-                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
-            }`}
-          >
-            <Icon size={16} />
-            {item.label}
-          </a>
-        );
-      })}
+              return (
+                <React.Fragment key={item.href}>
+                  {showSeparator && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 my-2 mx-2" />
+                  )}
+                  <a
+                    href={user && canAccessRoute(item) ? item.href : "/login"}
+                    className={`flex items-center gap-2 px-2 py-2 mx-1 rounded-md transition-colors ${
+                      isActive
+                        ? "bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
+                    }`}>
+                    <Icon size={16} className="flex-shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                    {/* Add role indicator for admin routes */}
+                    {item.roles &&
+                      item.roles.includes("super_admin") &&
+                      !item.roles.includes("admin") && (
+                        <span className="ml-auto flex-shrink-0 text-xs bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400 px-1.5 py-0.5 rounded">
+                          Super Admin
+                        </span>
+                      )}
+                    {item.roles &&
+                      item.roles.includes("admin") &&
+                      item.roles.includes("super_admin") && (
+                        <span className="ml-auto flex-shrink-0 text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400 px-1.5 py-0.5 rounded">
+                          Admin+
+                        </span>
+                      )}
+                  </a>
+                </React.Fragment>
+              );
+            })}
+          </nav>
+        </ScrollArea>
+      </div>
 
-      {/* Logout Button */}
-      <button
-        onClick={handleLogout}
-        className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
-      >
-        <LogOut size={16} />
-        Logout
-      </button>
-    </nav>
+      {/* Fixed Logout Button at Bottom */}
+      <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 mt-2 pt-3 px-1">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors">
+          <LogOut size={16} className="flex-shrink-0" />
+          <span>Logout</span>
+        </button>
+      </div>
+    </div>
   );
 };
 
@@ -120,27 +235,54 @@ export const QuickActions: React.FC = () => {
     priority: "normal" as const,
   });
 
+  // Add admin quick actions
+  if (user.role === "admin" || user.role === "super_admin") {
+    actions.push({
+      label: "View Recent Users",
+      action: () => router.push("/admin/users"),
+      priority: "normal" as const,
+    });
+
+    actions.push({
+      label: "System Analytics",
+      action: () => router.push("/admin/analytics"),
+      priority: "normal" as const,
+    });
+  }
+
+  // Super admin specific quick actions
+  if (user.role === "super_admin") {
+    actions.push({
+      label: "System Health",
+      action: () => router.push("/admin/system"),
+      priority: "high" as const,
+    });
+  }
+
   if (actions.length === 0) return null;
 
   return (
-    <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+    <div className="flex-shrink-0 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+      <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 px-2">
         Quick Actions
       </h4>
-      <div className="space-y-1">
-        {actions.map((action, index) => (
-          <button
-            key={index}
-            onClick={action.action}
-            className={`w-full text-left px-2 py-2 text-sm rounded-md transition-colors ${
-              action.priority === "high"
-                ? "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
-                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
-            }`}
-          >
-            {action.label}
-          </button>
-        ))}
+      <div className="max-h-32 overflow-hidden">
+        <ScrollArea className="h-full">
+          <div className="space-y-1 p-1">
+            {actions.map((action, index) => (
+              <button
+                key={index}
+                onClick={action.action}
+                className={`w-full text-left px-2 py-2 mx-1 text-sm rounded-md transition-colors ${
+                  action.priority === "high"
+                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
+                }`}>
+                {action.label}
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );
