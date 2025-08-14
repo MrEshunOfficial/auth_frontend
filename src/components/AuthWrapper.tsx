@@ -3,7 +3,7 @@
 
 import React, { useEffect, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hook/useProfile";
+import { useProfile } from "@/hook/useProfile";
 
 interface AuthWrapperProps {
   children: ReactNode;
@@ -22,7 +22,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
     </div>
   ),
 }) => {
-  const { isAuthenticated, authChecked, loading } = useAuth();
+  const { isAuthenticated, authChecked, loading } = useProfile();
   const router = useRouter();
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export const withGuest = <P extends object>(
   }
 ) => {
   const WrappedComponent: React.FC<P> = (props) => {
-    const { isAuthenticated, authChecked, loading } = useAuth();
+    const { isAuthenticated, authChecked, loading } = useProfile();
     const router = useRouter();
 
     useEffect(() => {

@@ -1,4 +1,4 @@
-import { IdType, UserRole } from "@/types/api.types";
+import { UserRole, idType } from "@/types/api.types";
 import { z } from "zod";
 
 // Ghana phone number regex pattern from your backend
@@ -27,7 +27,7 @@ const locationSchema = z.object({
     .string()
     .trim()
     .regex(ghanaPostGPSRegex, "Ghana Post GPS must be in format XX-0000-0000")
-    .optional(),
+    .min(1, "Ghana Post GPS is required"), // Fixed: Made required
   nearbyLandmark: z
     .string()
     .trim()
@@ -80,8 +80,7 @@ const contactDetailsSchema = z.object({
   primaryContact: z
     .string()
     .trim()
-    .regex(ghanaPhoneRegex, "Please provide a valid Ghana phone number")
-    .optional(),
+    .regex(ghanaPhoneRegex, "Please provide a valid Ghana phone number"),
   secondaryContact: z
     .string()
     .trim()
@@ -91,36 +90,46 @@ const contactDetailsSchema = z.object({
 
 // ID file schema
 const idFileSchema = z.object({
-  url: z.string().trim().optional(),
-  fileName: z.string().trim().optional(),
+  url: z.string().url("Invalid file URL").trim(),
+  fileName: z.string().trim().min(1, "File name is required"),
 });
 
 // ID details schema
 const idDetailsSchema = z.object({
-  idType: z.nativeEnum(IdType).optional(),
+  idType: z.nativeEnum(idType, {
+    errorMap: () => ({ message: "Please select a valid ID type" }),
+  }),
   idNumber: z
     .string()
     .trim()
-    .max(50, "ID number cannot exceed 50 characters")
-    .optional(),
-  idFile: idFileSchema.optional(),
+    .min(1, "ID number is required")
+    .max(50, "ID number cannot exceed 50 characters"),
+  idFile: idFileSchema,
 });
 
-// USER profile form schema (core profile information only)
+// Complete USER profile form schema
 export const profileFormSchema = z.object({
+  role: z.nativeEnum(UserRole).optional(),
   bio: z
     .string()
     .trim()
     .max(500, "Bio cannot exceed 500 characters")
     .optional(),
   location: locationSchema.optional(),
-  socialMediaHandles: z.array(socialMediaHandleSchema).optional(),
+  socialMediaHandles: z.array(socialMediaHandleSchema).max(5, "Maximum 5 social media handles allowed").optional(),
   contactDetails: contactDetailsSchema.optional(),
   idDetails: idDetailsSchema.optional(),
 });
 
-// Form schema for profile updates (all fields optional)
-export const updateProfileFormSchema = profileFormSchema.partial();
+// Form schema for profile updates (all fields optional except required nested fields)
+export const updateProfileFormSchema = profileFormSchema.partial({
+  role: true,
+  bio: true,
+  location: true,
+  socialMediaHandles: true,
+  contactDetails: true,
+  idDetails: true,
+});
 
 // Specific schemas for different form sections
 export const basicInfoFormSchema = z.object({
@@ -131,23 +140,27 @@ export const basicInfoFormSchema = z.object({
     .optional(),
 });
 
-export const locationFormSchema = locationSchema;
-
-export const contactFormSchema = z.object({
-  contactDetails: contactDetailsSchema.optional(),
-  socialMediaHandles: z.array(socialMediaHandleSchema).optional(),
+export const locationFormSchema = z.object({
+  location: locationSchema,
 });
 
-export const identificationFormSchema = idDetailsSchema;
+export const contactFormSchema = z.object({
+  contactDetails: contactDetailsSchema,
+  socialMediaHandles: z.array(socialMediaHandleSchema).max(5).optional(),
+});
 
-// USER-only role toggle (separate from profile form)
+export const identificationFormSchema = z.object({
+  idDetails: idDetailsSchema,
+});
+
+// Fixed: USER role toggle using correct UserRole enum
 export const userRoleToggleSchema = z.object({
-  role: z.enum([UserRole.CUSTOMER, UserRole.PROVIDER], {
-    errorMap: () => ({
-      message:
-        "Users can only switch between customer and service_provider roles",
-    }),
-  }),
+  role: z.nativeEnum(UserRole).refine(
+    (role) => role === UserRole.CUSTOMER || role === UserRole.PROVIDER,
+    {
+      message: "Users can only switch between customer and service_provider roles",
+    }
+  ),
 });
 
 // Location-specific validation for API endpoint
@@ -165,25 +178,31 @@ export type IdentificationFormData = z.infer<typeof identificationFormSchema>;
 export type UserRoleToggleData = z.infer<typeof userRoleToggleSchema>;
 export type LocationUpdateFormData = z.infer<typeof locationUpdateFormSchema>;
 
-// Helper function to validate profile completeness on the frontend
+// Enhanced profile completeness calculation
 export const calculateProfileCompleteness = (
   profile: Partial<ProfileFormData>
 ): number => {
-  let score = 0;
-  const fields = [
-    profile.bio,
+  // Core fields (25% each for required fields)
+  const coreFields = [
+    profile.bio && profile.bio.trim(),
     profile.location?.ghanaPostGPS,
     profile.contactDetails?.primaryContact,
-    profile.idDetails?.idNumber,
+    profile.role,
   ];
 
-  fields.forEach((field) => {
-    if (field && field.toString().trim()) {
-      score += 25;
-    }
-  });
+  // Optional but valuable fields (10% each)
+  const optionalFields = [
+    profile.idDetails?.idNumber,
+    profile.socialMediaHandles && profile.socialMediaHandles.length > 0,
+  ];
 
-  return score;
+  // Calculate core completeness (80%)
+  const coreScore = (coreFields.filter(Boolean).length / coreFields.length) * 80;
+  
+  // Calculate optional completeness (20%)
+  const optionalScore = (optionalFields.filter(Boolean).length / optionalFields.length) * 20;
+
+  return Math.round(coreScore + optionalScore);
 };
 
 // Validation helper functions
@@ -195,7 +214,7 @@ export const validateGhanaPostGPS = (gps: string): boolean => {
   return ghanaPostGPSRegex.test(gps);
 };
 
-// Form field configurations for UI components (profile form only)
+// Enhanced form field configurations
 export const formFieldConfigs = {
   bio: {
     maxLength: 500,
@@ -205,6 +224,7 @@ export const formFieldConfigs = {
   ghanaPostGPS: {
     placeholder: "XX-0000-0000",
     pattern: "XX-0000-0000",
+    required: true, // Added required indicator
   },
   nearbyLandmark: {
     maxLength: 100,
@@ -233,6 +253,7 @@ export const formFieldConfigs = {
   primaryContact: {
     placeholder: "+233XXXXXXXXX or 0XXXXXXXXX",
     type: "tel",
+    required: true,
   },
   secondaryContact: {
     placeholder: "+233XXXXXXXXX or 0XXXXXXXXX",
@@ -249,6 +270,65 @@ export const formFieldConfigs = {
   idNumber: {
     maxLength: 50,
     placeholder: "Enter your ID number",
+    required: true,
   },
 } as const;
 
+
+export const idTypeConfigs = {
+  [idType.NATIONAL_ID]: {
+    label: "Ghana Card",
+    icon: "🆔",
+    description: "National identification card issued by NIA",
+    pattern: /^GHA-\d{9}-\d$/,
+    placeholder: "GHA-123456789-0",
+    example: "GHA-123456789-0",
+    maxLength: 15,
+  },
+  [idType.VOTERS_ID]: {
+    label: "Voter's ID",
+    icon: "🗳️",
+    description: "Electoral Commission voter identification",
+    pattern: /^\d{10}$/,
+    placeholder: "1234567890",
+    example: "1234567890",
+    maxLength: 10,
+  },
+  [idType.PASSPORT]: {
+    label: "Ghana Passport",
+    icon: "📘",
+    description: "Ghana passport issued by Immigration Service",
+    pattern: /^[A-Z]\d{7}$/,
+    placeholder: "A1234567",
+    example: "A1234567",
+    maxLength: 8,
+  },
+  [idType.DRIVERS_LICENSE]: {
+    label: "Driver's License",
+    icon: "🚗",
+    description: "DVLA driving license",
+    pattern: /^[A-Z]{2}\d{7}$/,
+    placeholder: "DL1234567",
+    example: "DL1234567",
+    maxLength: 9,
+  },
+  [idType.NHIS]: {
+    label: "NHIS Card",
+    icon: "🏥",
+    description: "National Health Insurance Scheme card",
+    pattern: /^\d{10}$/,
+    placeholder: "1234567890",
+    example: "1234567890",
+    maxLength: 10,
+  },
+  // Add the missing OTHER configuration
+  [idType.OTHER]: {
+    label: "Other ID",
+    icon: "📋",
+    description: "Other valid identification document",
+    pattern: /^.+$/,
+    placeholder: "Enter ID number",
+    example: "Various formats accepted",
+    maxLength: 20,
+  },
+} as const;

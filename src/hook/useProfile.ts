@@ -1,4 +1,4 @@
-// hooks/useProfile.ts
+// hooks/useProfile.ts - Improved with better type utilization
 import { useCallback, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
@@ -23,13 +23,15 @@ import {
   UpdateProfileRequestBody,
   UserRole,
   UserLocation,
+  UserContext,
+  createUserContext,
 } from "@/types/api.types";
 
 // Cache duration in milliseconds (5 minutes)
 const CACHE_DURATION = 5 * 60 * 1000;
 
 interface UseProfileReturn {
-  // Data
+  // Data - Both user and profile objects
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
@@ -54,12 +56,12 @@ interface UseProfileReturn {
   getRoleDisplay: (role: string) => string;
   getProviderDisplay: (provider?: string) => string;
 
-  // Helper properties
-  isAdmin: boolean;
-  isSuperAdmin: boolean;
-  isVerified: boolean;
+  // Helper properties using proper types
   needsRefresh: boolean;
   hasProfile: boolean;
+  
+  // Use the proper UserContext type
+  userContext: UserContext | null;
 }
 
 export const useProfile = (): UseProfileReturn => {
@@ -91,7 +93,6 @@ export const useProfile = (): UseProfileReturn => {
       await dispatch(checkAuthStatus()).unwrap();
     } catch {
       console.log("Auth check failed - user not authenticated");
-      // Don't redirect here, let components handle unauthenticated state
     }
   }, [dispatch, authChecked]);
 
@@ -114,14 +115,14 @@ export const useProfile = (): UseProfileReturn => {
     }
   }, [dispatch, router]);
 
-  // Update profile with optimistic updates
+  // Update profile with optimistic updates and proper typing
   const updateUserProfile = useCallback(
     async (updates: UpdateProfileRequestBody) => {
       if (!user) {
         throw new Error("No user data available");
       }
 
-      // Optimistic updates
+      // Optimistic updates for user fields with proper typing
       if (updates.name || updates.avatar) {
         const userUpdates: Partial<User> = {};
         if (updates.name) userUpdates.name = updates.name;
@@ -129,6 +130,7 @@ export const useProfile = (): UseProfileReturn => {
         dispatch(updateUserOptimistic(userUpdates));
       }
 
+      // Optimistic updates for profile fields
       if (updates.profile && profile) {
         dispatch(updateProfileOptimistic(updates.profile));
       }
@@ -144,17 +146,15 @@ export const useProfile = (): UseProfileReturn => {
     [dispatch, user, profile, fetchUserProfile]
   );
 
-  // Update profile role
+  // Update role with proper error handling
   const updateRole = useCallback(
     async (role: UserRole) => {
       try {
         await dispatch(updateProfileRole(role)).unwrap();
-        // Refresh profile data after role update
         await fetchUserProfile();
       } catch (error) {
         const errorMessage =
           typeof error === "string" ? error : "Failed to update role";
-
         if (errorMessage === "AUTHENTICATION_ERROR") {
           router.push("/login");
         }
@@ -164,17 +164,14 @@ export const useProfile = (): UseProfileReturn => {
     [dispatch, fetchUserProfile, router]
   );
 
-  // Update profile location
   const updateLocation = useCallback(
     async (location: UserLocation) => {
       try {
         await dispatch(updateProfileLocation({ location })).unwrap();
-        // Refresh profile data after location update
         await fetchUserProfile();
       } catch (error) {
         const errorMessage =
           typeof error === "string" ? error : "Failed to update location";
-
         if (errorMessage === "AUTHENTICATION_ERROR") {
           router.push("/login");
         }
@@ -184,41 +181,35 @@ export const useProfile = (): UseProfileReturn => {
     [dispatch, fetchUserProfile, router]
   );
 
-  // Fetch profile completeness
   const fetchCompleteness = useCallback(async () => {
     try {
       await dispatch(fetchProfileCompleteness()).unwrap();
     } catch (error) {
       console.error("Failed to fetch completeness:", error);
-      // Don't throw for completeness errors as it's not critical
     }
   }, [dispatch]);
 
-  // Logout with automatic redirect
   const logout = useCallback(async () => {
     try {
       await dispatch(logoutUser()).unwrap();
     } catch (error) {
       console.error("Logout failed:", error);
     } finally {
-      // Always redirect and clear state, even if logout request fails
       dispatch(clearProfile());
       router.push("/login");
     }
   }, [dispatch, router]);
 
-  // Clear profile data
   const clearProfileData = useCallback(() => {
     dispatch(clearProfile());
   }, [dispatch]);
 
-  // Clear error
   const clearProfileError = useCallback(() => {
     dispatch(clearError());
   }, [dispatch]);
 
-  // Utility functions
-  const formatDate = useCallback((dateString?: string | Date) => {
+  // Utility functions with better type safety
+  const formatDate = useCallback((dateString?: string | Date): string => {
     if (!dateString) return "Not available";
 
     try {
@@ -238,14 +229,18 @@ export const useProfile = (): UseProfileReturn => {
   }, []);
 
   const getRoleDisplay = useCallback(
-    (role: string) => {
+    (role: string): string => {
       switch (role) {
+        case UserRole.SUPER_ADMIN:
         case "super_admin":
-          return user?.name;
+          return user?.systemAdminName || "Super Administrator";
+        case UserRole.ADMIN:
         case "admin":
           return "Administrator";
+        case UserRole.PROVIDER:
         case "service_provider":
           return "Service Provider";
+        case UserRole.CUSTOMER:
         case "customer":
           return "Customer";
         case "user":
@@ -253,20 +248,18 @@ export const useProfile = (): UseProfileReturn => {
         default:
           return role || "Unknown";
       }
-    },
-    [user?.name]
-  );
+    }, [user?.systemAdminName]);
 
-  const getProviderDisplay = useCallback((provider?: string) => {
+  const getProviderDisplay = useCallback((provider?: string): string => {
     switch (provider) {
       case "google":
         return "Google";
       case "apple":
         return "Apple";
       case "credentials":
-        return "Signed in with Email";
+        return "Email & Password";
       default:
-        return "Unknown";
+        return "Unknown Provider";
     }
   }, []);
 
@@ -284,18 +277,17 @@ export const useProfile = (): UseProfileReturn => {
     }
   }, [isAuthenticated, authChecked, needsRefresh, loading, fetchUserProfile]);
 
-  // Auto-fetch completeness when profile is loaded
+  // Auto-fetch completeness when user and profile are loaded
   useEffect(() => {
     if (user && profile && completeness === undefined && !loading) {
       fetchCompleteness();
     }
   }, [user, profile, completeness, loading, fetchCompleteness]);
 
-  // Helper computed properties
-  const isAdmin = user?.isAdmin || false;
-  const isSuperAdmin = user?.isSuperAdmin || false;
-  const isVerified = user?.isVerified || false;
-  const hasProfile = !!profile;
+  // Create proper UserContext using the helper function
+  const userContext: UserContext | null = user 
+    ? createUserContext(user, profile || undefined)
+    : null;
 
   return {
     // Data
@@ -324,86 +316,10 @@ export const useProfile = (): UseProfileReturn => {
     getProviderDisplay,
 
     // Helper properties
-    isAdmin,
-    isSuperAdmin,
-    isVerified,
     needsRefresh: needsRefresh(),
-    hasProfile,
+    hasProfile: !!profile,
+    
+    // Properly typed UserContext
+    userContext,
   };
 };
-
-// Updated useAuth hook
-export const useAuth = () => {
-  const {
-    isAuthenticated,
-    authChecked,
-    user,
-    logout,
-    clearProfileData,
-    loading,
-    initializeAuth,
-  } = useProfile();
-
-  return {
-    isAuthenticated,
-    authChecked,
-    user,
-    logout,
-    clearAuth: clearProfileData,
-    loading,
-    initializeAuth,
-  };
-};
-
-// User role hook
-export const useUserRole = () => {
-  const { user, profile, isAdmin, isSuperAdmin, getRoleDisplay } = useProfile();
-
-  return {
-    userRole: user?.role,
-    profileRole: profile?.role,
-    isAdmin,
-    isSuperAdmin,
-    isUser: user?.role === "user",
-    isCustomer: profile?.role === UserRole.CUSTOMER,
-    isProvider: profile?.role === UserRole.PROVIDER,
-    userRoleDisplay: user?.role ? getRoleDisplay(user.role) : "Unknown",
-    profileRoleDisplay: profile?.role
-      ? getRoleDisplay(profile.role)
-      : "Unknown",
-  };
-};
-
-// User preferences hook
-export const useUserPreferences = () => {
-  const { profile, updateUserProfile } = useProfile();
-
-  const updatePreferences = useCallback(
-    async (newPreferences: Partial<UserProfile["preferences"]>) => {
-      if (!profile) throw new Error("No profile available");
-
-      const updatedPreferences = {
-        ...profile.preferences,
-        ...newPreferences,
-      };
-
-      await updateUserProfile({
-        profile: {
-          preferences: updatedPreferences,
-        },
-      });
-    },
-    [profile, updateUserProfile]
-  );
-
-  return {
-    preferences: profile?.preferences,
-    theme: profile?.preferences?.theme,
-    notifications: profile?.preferences?.notifications,
-    language: profile?.preferences?.language,
-    privacySettings: profile?.preferences?.privacySettings,
-    updatePreferences,
-  };
-};
-
-export default useProfile;

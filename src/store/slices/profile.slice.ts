@@ -76,6 +76,8 @@ export const fetchProfile = createAsyncThunk(
   }
 );
 
+
+
 // Check authentication status
 export const checkAuthStatus = createAsyncThunk(
   "profile/checkAuthStatus",

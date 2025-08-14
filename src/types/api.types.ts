@@ -1,4 +1,6 @@
-// types/api.types.ts
+import { Types } from "mongoose";
+
+// types/api.types.ts - Updated with compatibility fixes
 export interface UserLocation {
   ghanaPostGPS: string;
   nearbyLandmark?: string;
@@ -8,8 +10,8 @@ export interface UserLocation {
   locality?: string;
   other?: string;
   gpsCoordinates?: {
-    latitude: number;
-    longitude: number;
+    latitude?: number;
+    longitude?: number;
   };
 }
 
@@ -20,17 +22,19 @@ export enum UserRole {
   SUPER_ADMIN = "super_admin",
 }
 
-export enum IdType {
+// Fixed: Renamed to match backend casing
+export enum idType {
   NATIONAL_ID = "national_id",
   PASSPORT = "passport",
   VOTERS_ID = "voters_id",
   DRIVERS_LICENSE = "drivers_license",
+  NHIS = "nhis",
   OTHER = "other",
 }
 
 export interface ProfilePicture {
-  url: string;
-  fileName: string;
+  url?: string;
+  fileName?: string;
 }
 
 export interface SocialMediaHandle {
@@ -55,11 +59,11 @@ export interface UserPreferences {
 
 export interface ContactDetails {
   primaryContact: string;
-  secondaryContact: string;
+  secondaryContact?: string;
 }
 
 export interface IdDetails {
-  idType: IdType;
+  idType: idType;
   idNumber: string;
   idFile: {
     url: string;
@@ -69,7 +73,7 @@ export interface IdDetails {
 
 export interface UserProfile {
   _id: string;
-  userId: string;
+  userId: Types.ObjectId;
   role?: UserRole;
   bio?: string;
   location?: UserLocation;
@@ -78,7 +82,6 @@ export interface UserProfile {
   lastModified?: string;
   contactDetails?: ContactDetails;
   idDetails?: IdDetails;
-  isActive: boolean;
   completeness?: number;
   createdAt: string;
   updatedAt: string;
@@ -90,14 +93,14 @@ export interface User {
   email: string;
   lastLogin: string;
   isVerified: boolean;
-  role: "user" | "admin" | "super_admin";
+  userRole: "user" | "admin" | "super_admin";
   provider: "credentials" | "google" | "apple";
   providerId?: string;
   avatar?: ProfilePicture | string;
   systemAdminName?: string;
   isAdmin: boolean;
   isSuperAdmin: boolean;
-  profileId?: string;
+  profileId?: Types.ObjectId; // Reference to user profile
   createdAt: string;
   updatedAt: string;
 }
@@ -113,7 +116,7 @@ export interface ApiResponse<T = unknown> {
   data?: T;
   completeness?: number;
   hasProfile?: boolean;
-  profileRole?: string | null;
+  profileRole?: UserRole | null;
   error?: string;
 }
 
@@ -167,3 +170,56 @@ export interface LinkProviderRequestBody {
   provider: "google" | "apple";
   idToken: string;
 }
+
+// Additional type guards and utilities for role checking
+export const isSystemAdmin = (user: User): boolean => {
+  return user.userRole === "admin" || user.userRole === "super_admin";
+};
+
+export const isServiceProvider = (profile?: UserProfile): boolean => {
+  return profile?.role === UserRole.PROVIDER;
+};
+
+export const isCustomer = (profile?: UserProfile): boolean => {
+  return profile?.role === UserRole.CUSTOMER;
+};
+
+export const canProvideServices = (user: User, profile?: UserProfile): boolean => {
+  return isServiceProvider(profile) && !isSystemAdmin(user);
+};
+
+export const canAccessAdminPanel = (user: User): boolean => {
+  return isSystemAdmin(user);
+};
+
+// Type for complete user context (system + profile roles)
+export interface UserContext {
+  user: User;
+  profile?: UserProfile;
+  systemRole: User['userRole'];
+  profileRole?: UserRole;
+  permissions: {
+    isSystemAdmin: boolean;
+    isServiceProvider: boolean;
+    isCustomer: boolean;
+    canProvideServices: boolean;
+    canAccessAdminPanel: boolean;
+  };
+}
+
+// Helper function to create user context
+export const createUserContext = (user: User, profile?: UserProfile): UserContext => {
+  return {
+    user,
+    profile,
+    systemRole: user.userRole,
+    profileRole: profile?.role,
+    permissions: {
+      isSystemAdmin: isSystemAdmin(user),
+      isServiceProvider: isServiceProvider(profile),
+      isCustomer: isCustomer(profile),
+      canProvideServices: canProvideServices(user, profile),
+      canAccessAdminPanel: canAccessAdminPanel(user),
+    },
+  };
+};

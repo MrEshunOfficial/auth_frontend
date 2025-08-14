@@ -1,7 +1,7 @@
 // components/providers/AuthInitializer.tsx
 "use client";
 
-import { useAuth } from "@/hook/useProfile";
+import { useProfile } from "@/hook/useProfile";
 import React, { useEffect, ReactNode } from "react";
 
 interface AuthInitializerProps {
@@ -11,7 +11,7 @@ interface AuthInitializerProps {
 export const AuthInitializer: React.FC<AuthInitializerProps> = ({
   children,
 }) => {
-  const { initializeAuth, authChecked } = useAuth();
+  const { initializeAuth, authChecked } = useProfile();
 
   useEffect(() => {
     // Initialize auth check on app load

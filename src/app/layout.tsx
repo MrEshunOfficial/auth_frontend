@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import Script from "next/script";
 import { ReduxProvider } from "@/components/providers/ReduxProvider";
 import { AuthInitializer } from "@/components/providers/AuthInitializer";
+import { MainHeader } from "@/components/ui/headerUi/MainHeader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 overflow-x-hidden`}
+        suppressHydrationWarning
       >
         <Script
           src="https://accounts.google.com/gsi/client"
@@ -58,8 +60,12 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <AuthInitializer>
-              <main className="relative w-full min-h-screen">
-                <div className="w-full min-h-[calc(100vh-3rem)] px-2 py-2">
+              <main className="flex flex-col min-h-screen w-full">
+                {/* Header */}
+                <MainHeader />
+
+                {/* Main content area */}
+                <div className="flex-1 w-full max-w-screen-2xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
                   {children}
                 </div>
               </main>

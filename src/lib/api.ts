@@ -30,11 +30,15 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    skipAuthCheck = false
   ): Promise<T> {
     const url = `${this.baseURL}/api${endpoint}`;
 
-    console.log("Making request to:", url);
+    // Only log in development to reduce console noise
+    if (process.env.NODE_ENV === 'development') {
+      console.log("Making request to:", url);
+    }
 
     const config: RequestInit = {
       headers: {
@@ -67,13 +71,25 @@ class ApiClient {
           code: errorCode,
         };
 
+        // Don't log 401 errors for auth check endpoints to reduce noise
+        if (response.status === 401 && !skipAuthCheck) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log("Authentication required for:", endpoint);
+          }
+        } else if (response.status !== 401) {
+          console.error("API request failed:", apiError);
+        }
+
         throw apiError;
       }
 
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error("API request failed:", error);
+      // Only log non-401 errors or when explicitly requested
+      if (!(error && typeof error === 'object' && 'status' in error && error.status === 401) || !skipAuthCheck) {
+        console.error("API request failed:", error);
+      }
 
       if (error instanceof TypeError && error.message.includes("fetch")) {
         const networkError: ApiError = {
@@ -152,11 +168,12 @@ class ApiClient {
     });
   }
 
-  // Profile methods
+  // Profile methods - these should handle auth gracefully
   async getProfile(): Promise<
     ApiResponse<{ user: User; profile?: UserProfile }>
   > {
-    return this.request("/profile");
+    // Pass skipAuthCheck=true to avoid logging 401s as errors for auth checks
+    return this.request("/profile", {}, true);
   }
 
   async updateProfile(
@@ -208,7 +225,7 @@ class ApiClient {
   async getProfileWithContext(): Promise<
     ApiResponse<{ user: User; profile?: UserProfile }>
   > {
-    return this.request("/profile/with-context");
+    return this.request("/profile/with-context", {}, true);
   }
 
   // OAuth methods
@@ -236,6 +253,20 @@ class ApiClient {
   // Health check
   async healthCheck(): Promise<{ status: string; timestamp: string }> {
     return this.request("/health");
+  }
+
+  // Helper method to check if user is authenticated without logging errors
+  async checkAuth(): Promise<boolean> {
+    try {
+      await this.getProfile();
+      return true;
+    } catch (error) {
+      if (error && typeof error === 'object' && 'status' in error && error.status === 401) {
+        return false;
+      }
+      // For other errors, we still want to know about them
+      throw error;
+    }
   }
 }
 

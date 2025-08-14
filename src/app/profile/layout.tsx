@@ -5,7 +5,7 @@ import { withAuth } from "@/components/AuthWrapper";
 import DashboardNavigation, {
   QuickActions,
 } from "@/components/DashBoardNavigation";
-import useProfile from "@/hook/useProfile";
+import { useProfile } from "@/hook/useProfile";
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -44,24 +44,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 
   return (
     <div className="container max-w-7xl mx-auto min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-lg font-semibold flex items-center gap-2">
-            {user ? (
-              `Welcome, ${user.name}`
-            ) : loading ? (
-              <span className="flex items-center gap-2">
-                <LoadingSpinner />
-                Loading...
-              </span>
-            ) : (
-              "Dashboard"
-            )}
-          </h1>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="flex-1 w-full p-4">
         <div className="flex gap-4 h-full">
@@ -96,7 +78,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                     <div className="mt-2">
                       <button
                         onClick={handleRetryFetch}
-                        className="text-sm bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-800 dark:text-red-100 dark:hover:bg-red-700 px-3 py-1 rounded-md transition-colors">
+                        className="text-sm bg-red-100 text-red-800 hover:bg-red-200 dark:bg-red-800 dark:text-red-100 dark:hover:bg-red-700 px-3 py-1 rounded-md transition-colors"
+                      >
                         Try Again
                       </button>
                     </div>
@@ -133,7 +116,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
 // Export with authentication wrapper
 export default withAuth(DashboardLayout, {
   fallback: (
-    <div className="min-h-screen flex flex-col items-center justify-center p-2 bg-gray-50 dark:bg-gray-900">
+    <div className="max-h-screen overflow-auto flex flex-col items-center justify-center p-2 bg-gray-50 dark:bg-gray-900">
       <p className="text-center mb-2 text-gray-700 dark:text-gray-300">
         Errand mate welcomes you, please wait while we load your profile...
       </p>
