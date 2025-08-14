@@ -59,7 +59,7 @@ interface UseProfileReturn {
   // Helper properties using proper types
   needsRefresh: boolean;
   hasProfile: boolean;
-  
+
   // Use the proper UserContext type
   userContext: UserContext | null;
 }
@@ -248,7 +248,9 @@ export const useProfile = (): UseProfileReturn => {
         default:
           return role || "Unknown";
       }
-    }, [user?.systemAdminName]);
+    },
+    [user?.systemAdminName]
+  );
 
   const getProviderDisplay = useCallback((provider?: string): string => {
     switch (provider) {
@@ -285,7 +287,7 @@ export const useProfile = (): UseProfileReturn => {
   }, [user, profile, completeness, loading, fetchCompleteness]);
 
   // Create proper UserContext using the helper function
-  const userContext: UserContext | null = user 
+  const userContext: UserContext | null = user
     ? createUserContext(user, profile || undefined)
     : null;
 
@@ -318,7 +320,7 @@ export const useProfile = (): UseProfileReturn => {
     // Helper properties
     needsRefresh: needsRefresh(),
     hasProfile: !!profile,
-    
+
     // Properly typed UserContext
     userContext,
   };
