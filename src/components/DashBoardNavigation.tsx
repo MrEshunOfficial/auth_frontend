@@ -139,7 +139,7 @@ export const DashboardNavigation: React.FC = () => {
     if (!item.roles) return true;
 
     // Check if user has required role
-    return item.roles.includes(user?.userRole || "");
+    return item.roles.includes(user?.systemRole || "");
   };
 
   const getFilteredNavigationItems = () => {
@@ -151,8 +151,7 @@ export const DashboardNavigation: React.FC = () => {
   return (
     <div
       className="flex flex-col h-full min-h-0"
-      data-testid="dashboard-navigation"
-    >
+      data-testid="dashboard-navigation">
       {/* Scrollable Navigation Area */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <ScrollArea className="h-full">
@@ -173,8 +172,7 @@ export const DashboardNavigation: React.FC = () => {
                       isActive
                         ? "bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
-                    }`}
-                  >
+                    }`}>
                     <Icon size={16} className="flex-shrink-0" />
                     <span className="truncate">{item.label}</span>
                     {/* Add role indicator for admin routes */}
@@ -204,8 +202,7 @@ export const DashboardNavigation: React.FC = () => {
       <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 mt-2 pt-3 px-1">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
-        >
+          className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors">
           <LogOut size={16} className="flex-shrink-0" />
           <span>Logout</span>
         </button>
@@ -280,8 +277,7 @@ export const QuickActions: React.FC = () => {
                   action.priority === "high"
                     ? "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30"
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}
-              >
+                }`}>
                 {action.label}
               </button>
             ))}

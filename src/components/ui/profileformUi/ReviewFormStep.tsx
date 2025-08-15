@@ -38,8 +38,6 @@ const idTypeLabels: Record<idType, string> = {
 const roleLabels = {
   [UserRole.CUSTOMER]: "Customer",
   [UserRole.PROVIDER]: "Service Provider",
-  [UserRole.ADMIN]: "Admin",
-  [UserRole.SUPER_ADMIN]: "Super Admin",
 };
 
 export default function ReviewFormStep({
@@ -301,8 +299,7 @@ export default function ReviewFormStep({
               : completeness >= 50
               ? "text-yellow-600 dark:text-yellow-400"
               : "text-blue-600 dark:text-blue-400"
-          }`}
-        >
+          }`}>
           {completeness >= 80
             ? "🎉 Profile Complete!"
             : completeness >= 50
@@ -333,8 +330,7 @@ export default function ReviewFormStep({
               type="button"
               onClick={() => onEdit?.(REVIEW_SECTIONS.BASIC_INFO)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}
-            >
+              disabled={isSubmitting}>
               Edit
             </button>
           </div>
@@ -402,8 +398,7 @@ export default function ReviewFormStep({
               type="button"
               onClick={() => onEdit?.(REVIEW_SECTIONS.LOCATION)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}
-            >
+              disabled={isSubmitting}>
               Edit
             </button>
           </div>
@@ -494,8 +489,7 @@ export default function ReviewFormStep({
               type="button"
               onClick={() => onEdit?.(REVIEW_SECTIONS.CONTACT)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}
-            >
+              disabled={isSubmitting}>
               Edit
             </button>
           </div>
@@ -537,8 +531,7 @@ export default function ReviewFormStep({
                     .map((handle, index) => (
                       <div
                         key={index}
-                        className="flex items-center space-x-2 text-sm"
-                      >
+                        className="flex items-center space-x-2 text-sm">
                         <span className="text-gray-600 dark:text-gray-400 min-w-0 flex-shrink-0">
                           {handle.nameOfSocial}:
                         </span>
@@ -588,8 +581,7 @@ export default function ReviewFormStep({
               type="button"
               onClick={() => onEdit?.(REVIEW_SECTIONS.IDENTIFICATION)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}
-            >
+              disabled={isSubmitting}>
               Edit
             </button>
           </div>

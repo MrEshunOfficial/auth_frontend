@@ -228,29 +228,18 @@ export const useProfile = (): UseProfileReturn => {
     }
   }, []);
 
-  const getRoleDisplay = useCallback(
-    (role: string): string => {
-      switch (role) {
-        case UserRole.SUPER_ADMIN:
-        case "super_admin":
-          return user?.systemAdminName || "Super Administrator";
-        case UserRole.ADMIN:
-        case "admin":
-          return "Administrator";
-        case UserRole.PROVIDER:
-        case "service_provider":
-          return "Service Provider";
-        case UserRole.CUSTOMER:
-        case "customer":
-          return "Customer";
-        case "user":
-          return "User";
-        default:
-          return role || "Unknown";
-      }
-    },
-    [user?.systemAdminName]
-  );
+  const getRoleDisplay = useCallback((role: string): string => {
+    switch (role) {
+      case UserRole.PROVIDER:
+      case "service_provider":
+        return "Service Provider";
+      case UserRole.CUSTOMER:
+      case "customer":
+        return "Customer";
+      default:
+        return role || "Unknown";
+    }
+  }, []);
 
   const getProviderDisplay = useCallback((provider?: string): string => {
     switch (provider) {

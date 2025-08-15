@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 
-// types/api.types.ts - Updated with compatibility fixes
+// types/api.types.ts - Updated with migration compatibility
 export interface UserLocation {
   ghanaPostGPS: string;
   nearbyLandmark?: string;
@@ -18,11 +18,8 @@ export interface UserLocation {
 export enum UserRole {
   CUSTOMER = "customer",
   PROVIDER = "service_provider",
-  ADMIN = "admin",
-  SUPER_ADMIN = "super_admin",
 }
 
-// Fixed: Renamed to match backend casing
 export enum idType {
   NATIONAL_ID = "national_id",
   PASSPORT = "passport",
@@ -31,6 +28,9 @@ export enum idType {
   NHIS = "nhis",
   OTHER = "other",
 }
+
+// Add SystemRole type for consistency with backend
+export type SystemRole = "user" | "admin" | "super_admin";
 
 export interface ProfilePicture {
   url?: string;
@@ -87,20 +87,22 @@ export interface UserProfile {
   updatedAt: string;
 }
 
+// Updated User interface with migration support
 export interface User {
   _id: string;
   name: string;
   email: string;
   lastLogin: string;
   isVerified: boolean;
-  userRole: "user" | "admin" | "super_admin";
+  systemRole: SystemRole; // Use the SystemRole type
+  userRole?: SystemRole; // Keep for backward compatibility during migration
   provider: "credentials" | "google" | "apple";
   providerId?: string;
   avatar?: ProfilePicture | string;
   systemAdminName?: string;
   isAdmin: boolean;
   isSuperAdmin: boolean;
-  profileId?: Types.ObjectId; // Reference to user profile
+  profileId?: Types.ObjectId;
   createdAt: string;
   updatedAt: string;
 }
@@ -171,9 +173,15 @@ export interface LinkProviderRequestBody {
   idToken: string;
 }
 
-// Additional type guards and utilities for role checking
+// Updated utility functions with migration safety
+export const getSystemRole = (user: User): SystemRole => {
+  // Migration safety: fallback to userRole if systemRole is missing
+  return user.systemRole || user.userRole || "user";
+};
+
 export const isSystemAdmin = (user: User): boolean => {
-  return user.userRole === "admin" || user.userRole === "super_admin";
+  const role = getSystemRole(user);
+  return role === "admin" || role === "super_admin";
 };
 
 export const isServiceProvider = (profile?: UserProfile): boolean => {
@@ -184,7 +192,10 @@ export const isCustomer = (profile?: UserProfile): boolean => {
   return profile?.role === UserRole.CUSTOMER;
 };
 
-export const canProvideServices = (user: User, profile?: UserProfile): boolean => {
+export const canProvideServices = (
+  user: User,
+  profile?: UserProfile
+): boolean => {
   return isServiceProvider(profile) && !isSystemAdmin(user);
 };
 
@@ -196,7 +207,7 @@ export const canAccessAdminPanel = (user: User): boolean => {
 export interface UserContext {
   user: User;
   profile?: UserProfile;
-  systemRole: User['userRole'];
+  systemRole: SystemRole;
   profileRole?: UserRole;
   permissions: {
     isSystemAdmin: boolean;
@@ -207,12 +218,17 @@ export interface UserContext {
   };
 }
 
-// Helper function to create user context
-export const createUserContext = (user: User, profile?: UserProfile): UserContext => {
+// Updated helper function with migration safety
+export const createUserContext = (
+  user: User,
+  profile?: UserProfile
+): UserContext => {
+  const systemRole = getSystemRole(user);
+
   return {
     user,
     profile,
-    systemRole: user.userRole,
+    systemRole,
     profileRole: profile?.role,
     permissions: {
       isSystemAdmin: isSystemAdmin(user),

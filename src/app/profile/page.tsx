@@ -301,11 +301,9 @@ const ProfilePage: React.FC = () => {
     getProviderDisplay,
   } = useProfile();
 
-  console.log("system role: ", user?.userRole);
-
   useEffect(() => {
     if (needsRefresh && !loading && isAuthenticated) {
-      fetchUserProfile().catch(console.error);
+      fetchUserProfile();
     }
   }, [needsRefresh, loading, fetchUserProfile, isAuthenticated]);
 
@@ -425,9 +423,9 @@ const ProfilePage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {user.userRole !== "user" && (
+                    {user.systemRole !== "user" && (
                       <StatusBadge
-                        role={getRoleDisplay(user.userRole)}
+                        role={getRoleDisplay(user.systemRole)}
                         variant="system"
                       />
                     )}
@@ -508,11 +506,11 @@ const ProfilePage: React.FC = () => {
                 initial="hidden"
                 animate="visible"
                 className="space-y-0">
-                {user.userRole !== "user" && (
+                {user.systemRole !== "user" && (
                   <InfoItem
                     icon={<Shield className="w-4 h-4" />}
                     label="System Role"
-                    value={getRoleDisplay(user.userRole)}
+                    value={getRoleDisplay(user.systemRole)}
                   />
                 )}
 
