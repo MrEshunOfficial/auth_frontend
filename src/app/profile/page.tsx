@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
@@ -15,9 +15,12 @@ import {
   Calendar,
   UserCircle,
   Group,
+  Edit3,
 } from "lucide-react";
 import { useProfile } from "@/hook/useProfile";
 import Link from "next/link";
+import ImageUpload from "@/components/ui/profileformUi/ImageUpload";
+import Image from "next/image";
 
 // Animation variants
 const containerVariants = {
@@ -53,6 +56,15 @@ const cardVariants = {
   },
 };
 
+// Utility function to get image URL from ProfilePicture or string
+const getImageUrl = (
+  avatar: string | { url?: string; fileName?: string } | undefined
+): string | undefined => {
+  if (!avatar) return undefined;
+  if (typeof avatar === "string") return avatar;
+  return avatar.url;
+};
+
 // Components
 const LoadingSpinner: React.FC = () => (
   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400 dark:border-red-300"></div>
@@ -70,7 +82,8 @@ const Card: React.FC<CardProps & React.HTMLAttributes<HTMLDivElement>> = ({
 }) => (
   <div
     className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm dark:shadow-gray-900/20 ${className}`}
-    {...props}>
+    {...props}
+  >
     {children}
   </div>
 );
@@ -85,21 +98,24 @@ const CardContent: React.FC<CardProps> = ({ children, className = "" }) => (
 
 const CardTitle: React.FC<CardProps> = ({ children, className = "" }) => (
   <h3
-    className={`text-base font-semibold text-gray-900 dark:text-gray-100 ${className}`}>
+    className={`text-base font-semibold text-gray-900 dark:text-gray-100 ${className}`}
+  >
     {children}
   </h3>
 );
 
 const Avatar: React.FC<CardProps> = ({ children, className = "" }) => (
   <div
-    className={`relative inline-flex items-center justify-center ${className}`}>
+    className={`relative inline-flex items-center justify-center ${className}`}
+  >
     {children}
   </div>
 );
 
 const AvatarFallback: React.FC<CardProps> = ({ children, className = "" }) => (
   <div
-    className={`flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-600 dark:from-blue-400 dark:to-teal-500 text-white font-medium ${className}`}>
+    className={`flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-teal-600 dark:from-blue-400 dark:to-teal-500 text-white font-medium ${className}`}
+  >
     {children}
   </div>
 );
@@ -128,7 +144,8 @@ const Badge: React.FC<BadgeProps> = ({
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${variants[variant]} ${className}`}>
+      className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${variants[variant]} ${className}`}
+    >
       {children}
     </span>
   );
@@ -141,7 +158,8 @@ interface ProgressProps {
 
 const Progress: React.FC<ProgressProps> = ({ value, className = "" }) => (
   <div
-    className={`w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 ${className}`}>
+    className={`w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5 ${className}`}
+  >
     <div
       className="bg-gradient-to-r from-red-400 to-red-500 dark:from-red-500 dark:to-red-400 h-1.5 rounded-full transition-all duration-300"
       style={{ width: `${value}%` }}
@@ -177,7 +195,8 @@ const Button: React.FC<ButtonProps> = ({
   return (
     <button
       className={`inline-flex items-center justify-center rounded-md font-medium transition-colors ${variants[variant]} ${sizes[size]} ${className}`}
-      {...props}>
+      {...props}
+    >
       {children}
     </button>
   );
@@ -199,7 +218,8 @@ const InfoItem: React.FC<InfoItemProps> = ({
 }) => (
   <motion.div
     variants={itemVariants}
-    className={`flex items-start gap-2 py-1.5 ${className}`}>
+    className={`flex items-start gap-2 py-1.5 ${className}`}
+  >
     <div className="flex-shrink-0 mt-0.5 text-gray-400 dark:text-gray-500 w-4 h-4">
       {icon}
     </div>
@@ -269,7 +289,8 @@ const BreadcrumbLink: React.FC<BreadcrumbLinkProps> = ({
 }) => (
   <a
     href={href}
-    className={`flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ${className}`}>
+    className={`flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors ${className}`}
+  >
     {children}
   </a>
 );
@@ -295,11 +316,14 @@ const ProfilePage: React.FC = () => {
     completeness,
     needsRefresh,
     fetchUserProfile,
+    updateUserProfile,
     isAuthenticated,
     formatDate,
     getRoleDisplay,
     getProviderDisplay,
   } = useProfile();
+
+  const [showImageUpload, setShowImageUpload] = useState(false);
 
   useEffect(() => {
     if (needsRefresh && !loading && isAuthenticated) {
@@ -316,18 +340,49 @@ const ProfilePage: React.FC = () => {
       .slice(0, 2);
   };
 
+  const handleImageUpdate = async (imageFile: File): Promise<void> => {
+    try {
+      // Convert image to base64 or handle as needed for your API
+      const reader = new FileReader();
+      reader.readAsDataURL(imageFile);
+
+      return new Promise((resolve, reject) => {
+        reader.onload = async () => {
+          try {
+            const base64Image = reader.result as string;
+            await updateUserProfile({
+              avatar: base64Image, // or handle the file upload to your storage service
+            });
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => reject(new Error("Failed to read image file"));
+      });
+    } catch {
+      throw new Error("Failed to update profile picture");
+    }
+  };
+
+  const handleCloseImageUpload = () => {
+    setShowImageUpload(false);
+  };
+
   if (loading && !user) {
     return (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="flex flex-col items-center justify-center py-12 bg-gray-50 dark:bg-gray-900">
+        className="flex flex-col items-center justify-center py-12 bg-gray-50 dark:bg-gray-900"
+      >
         <LoadingSpinner />
         <motion.p
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          className="mt-2 text-sm text-gray-500 dark:text-gray-400"
+        >
           Loading your profile...
         </motion.p>
       </motion.div>
@@ -339,7 +394,8 @@ const ProfilePage: React.FC = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="flex flex-col items-center justify-center py-12 bg-gray-50 dark:bg-gray-900">
+        className="flex flex-col items-center justify-center py-12 bg-gray-50 dark:bg-gray-900"
+      >
         <User className="h-12 w-12 text-gray-300 dark:text-gray-600 mb-2" />
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Unable to load profile data.
@@ -348,12 +404,16 @@ const ProfilePage: React.FC = () => {
     );
   }
 
+  // Get the image URL safely
+  const avatarUrl = getImageUrl(user.avatar);
+
   return (
     <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="w-full max-w-6xl mx-auto p-2 space-y-3">
+      className="w-full max-w-6xl mx-auto p-2 space-y-3"
+    >
       {/* Breadcrumb */}
       <motion.div variants={itemVariants}>
         <Breadcrumb>
@@ -378,7 +438,8 @@ const ProfilePage: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}>
+            exit={{ opacity: 0, height: 0 }}
+          >
             <Card className="border-red-200 bg-red-50">
               <CardContent className="pt-2">
                 <div className="flex items-center gap-2 text-red-700">
@@ -387,6 +448,56 @@ const ProfilePage: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Upload Modal */}
+      <AnimatePresence>
+        {showImageUpload && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={handleCloseImageUpload}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Update Profile Picture
+                </h2>
+                <button
+                  onClick={handleCloseImageUpload}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <Edit3 className="w-5 h-5" />
+                </button>
+              </div>
+
+              <ImageUpload
+                currentImage={avatarUrl}
+                userName={user.name}
+                onImageUpdate={handleImageUpdate}
+                className="w-full"
+              />
+
+              <div className="mt-6 flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseImageUpload}
+                  className="px-4 py-2"
+                >
+                  Close
+                </Button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -401,12 +512,35 @@ const ProfilePage: React.FC = () => {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                  className="relative">
-                  <Avatar className="w-14 h-14 ring-2 ring-white dark:ring-gray-900 shadow-md rounded-full">
-                    <AvatarFallback className="text-lg dark:text-gray-200">
-                      {getInitials(user.name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  className="relative"
+                >
+                  <div className="relative">
+                    <Avatar className="w-14 h-14 ring-2 ring-white dark:ring-gray-900 shadow-md rounded-full">
+                      {avatarUrl ? (
+                        <Image
+                          src={avatarUrl}
+                          alt={`${user.name} profile`}
+                          width={56}
+                          height={56}
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      ) : (
+                        <AvatarFallback className="text-lg dark:text-gray-200">
+                          {getInitials(user.name)}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+
+                    {/* Edit Avatar Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setShowImageUpload(true)}
+                      className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 hover:bg-blue-600 text-white rounded-full flex items-center justify-center transition-colors duration-200 shadow-md"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                    </motion.button>
+                  </div>
                 </motion.div>
 
                 <div className="space-y-1">
@@ -425,10 +559,15 @@ const ProfilePage: React.FC = () => {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {user.systemRole !== "user" && (
                       <StatusBadge
-                        role={getRoleDisplay(user.systemRole)}
+                        role={getRoleDisplay(
+                          user.systemRole === "admin"
+                            ? "Administrator"
+                            : user.systemAdminName ?? ""
+                        )}
                         variant="system"
                       />
                     )}
+
                     {profile?.role && (
                       <StatusBadge
                         role={getRoleDisplay(profile.role)}
@@ -458,7 +597,8 @@ const ProfilePage: React.FC = () => {
                   <Link href={action.href} passHref>
                     <Button
                       size="lg"
-                      className="flex items-center gap-1.5 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700">
+                      className="flex items-center gap-1.5 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                    >
                       <Group className="w-4 h-4" />
                       {action.label}
                     </Button>
@@ -473,7 +613,8 @@ const ProfilePage: React.FC = () => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="mt-4 p-2.5 bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-700">
+                className="mt-4 p-2.5 bg-white dark:bg-gray-900 rounded-lg border border-gray-100 dark:border-gray-700"
+              >
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                     Profile Completeness
@@ -505,12 +646,16 @@ const ProfilePage: React.FC = () => {
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="space-y-0">
+                className="space-y-0"
+              >
                 {user.systemRole !== "user" && (
-                  <InfoItem
-                    icon={<Shield className="w-4 h-4" />}
-                    label="System Role"
-                    value={getRoleDisplay(user.systemRole)}
+                  <StatusBadge
+                    role={getRoleDisplay(
+                      user.systemRole === "admin"
+                        ? "Administrator"
+                        : user.systemAdminName ?? ""
+                    )}
+                    variant="system"
                   />
                 )}
 
@@ -549,7 +694,8 @@ const ProfilePage: React.FC = () => {
                   variants={containerVariants}
                   initial="hidden"
                   animate="visible"
-                  className="space-y-0">
+                  className="space-y-0"
+                >
                   {profile.role && (
                     <InfoItem
                       icon={<User className="w-4 h-4" />}
@@ -574,7 +720,8 @@ const ProfilePage: React.FC = () => {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-center py-6">
+                  className="text-center py-6"
+                >
                   <User className="mx-auto h-8 w-8 text-gray-300 mb-2" />
                   <h4 className="text-base font-medium text-gray-900 mb-1">
                     No profile details
@@ -599,7 +746,6 @@ const ProfilePage: React.FC = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <Phone className="w-4 h-4 text-teal-600" />
                     Contact Information
                   </CardTitle>
                 </CardHeader>
@@ -608,16 +754,21 @@ const ProfilePage: React.FC = () => {
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="space-y-0">
+                    className="space-y-0"
+                  >
                     <InfoItem
                       icon={<Phone className="w-4 h-4" />}
-                      label="Primary Contact"
+                      label={
+                        profile.role === "service_provider"
+                          ? "Business Contact"
+                          : "Reach me On ⬇️"
+                      }
                       value={profile.contactDetails.primaryContact}
                     />
                     {profile.contactDetails.secondaryContact && (
                       <InfoItem
                         icon={<Phone className="w-4 h-4" />}
-                        label="Secondary Contact"
+                        label="Emergency Contact (if it's for urgent situations)"
                         value={profile.contactDetails.secondaryContact}
                       />
                     )}
@@ -642,7 +793,8 @@ const ProfilePage: React.FC = () => {
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="space-y-0">
+                    className="space-y-0"
+                  >
                     <InfoItem
                       icon={<MapPin className="w-4 h-4" />}
                       label="Ghana Post GPS"
@@ -692,7 +844,8 @@ const ProfilePage: React.FC = () => {
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                className="grid grid-cols-1 md:grid-cols-2 gap-2"
+              >
                 {profile.socialMediaHandles.map((social, index) => (
                   <InfoItem
                     key={index}

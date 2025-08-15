@@ -45,7 +45,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   return (
     <div className="container max-w-7xl mx-auto min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       {/* Main Content */}
-      <main className="flex-1 w-full p-4">
+      <main className="flex-1 w-full pb-2">
         <div className="flex gap-4 h-full">
           {/* Sidebar */}
           <aside className="w-76 flex-shrink-0">

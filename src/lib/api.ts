@@ -228,6 +228,21 @@ class ApiClient {
     return this.request("/profile/with-context", {}, true);
   }
 
+  // NEW: Missing methods from backend routes
+  async getBatchOperations(): Promise<ApiResponse> {
+    return this.request("/profile/batch-operations");
+  }
+
+  async getContextAware(): Promise<
+    ApiResponse<{ 
+      message: string; 
+      hasProfile: boolean; 
+      profileRole: string | null; 
+    }>
+  > {
+    return this.request("/profile/context-aware");
+  }
+
   // OAuth methods
   async googleAuth(data: GoogleAuthRequestBody): Promise<ApiResponse> {
     return this.request("/auth/google", {
